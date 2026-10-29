@@ -1,0 +1,468 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bazar.com | Book Store</title>
+
+    <style>
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            font-family: Arial, sans-serif;
+            background: #f5f3ef;
+            color: #263238;
+        }
+
+        header {
+            background: #173f35;
+            color: white;
+            padding: 22px 8%;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        header h1 {
+            margin: 0;
+            font-size: 28px;
+        }
+
+        header span {
+            color: #e8c98c;
+        }
+
+        .hero {
+            padding: 55px 8%;
+            background: #e8e2d5;
+        }
+
+        .hero h2 {
+            font-size: 38px;
+            margin: 0 0 12px;
+        }
+
+        .hero p {
+            color: #58645e;
+            font-size: 17px;
+        }
+
+        main {
+            padding: 30px 8%;
+        }
+
+        .search-box {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 25px;
+        }
+
+        input, button {
+            font-size: 15px;
+            padding: 12px;
+            border-radius: 7px;
+        }
+
+        input {
+            border: 1px solid #ccc;
+            flex: 1;
+            min-width: 0;
+        }
+
+        button {
+            border: none;
+            background: #236451;
+            color: white;
+            cursor: pointer;
+        }
+
+        button:hover {
+            background: #173f35;
+        }
+
+        .secondary {
+            background: #68766f;
+        }
+
+        #message {
+            margin: 15px 0;
+            font-weight: bold;
+        }
+
+        .book-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+            gap: 20px;
+        }
+
+        .book {
+            background: white;
+            border-radius: 12px;
+            padding: 22px;
+            box-shadow: 0 3px 12px #0000000c;
+        }
+
+        .book-icon {
+            font-size: 38px;
+            margin-bottom: 12px;
+        }
+
+        .book h3 {
+            line-height: 1.4;
+            min-height: 50px;
+        }
+
+        .topic {
+            color: #68766f;
+            font-size: 14px;
+        }
+
+        .price {
+            font-size: 22px;
+            font-weight: bold;
+            color: #236451;
+        }
+
+        .stock {
+            font-size: 14px;
+            margin-bottom: 15px;
+        }
+
+        .book button {
+            width: 100%;
+            margin-top: 8px;
+        }
+
+        .book button:disabled {
+            background: #aaa;
+            cursor: not-allowed;
+        }
+
+        .panel {
+            background: white;
+            border-radius: 12px;
+            padding: 22px;
+            margin-top: 30px;
+        }
+
+        .panel h2 {
+            margin-top: 0;
+        }
+
+        .admin-row {
+            display: flex;
+            gap: 10px;
+            margin-top: 12px;
+        }
+
+        footer {
+            margin-top: 40px;
+            padding: 25px;
+            text-align: center;
+            background: #173f35;
+            color: white;
+        }
+
+        @media (max-width: 600px) {
+            header {
+                padding: 18px 5%;
+            }
+
+            .hero, main {
+                padding: 25px 5%;
+            }
+
+            .hero h2 {
+                font-size: 29px;
+            }
+
+            .search-box, .admin-row {
+                flex-wrap: wrap;
+            }
+        }
+    </style>
+</head>
+
+<body>
+
+<header>
+    <h1>Bazar<span>.com</span></h1>
+    <div>Online Book Store</div>
+</header>
+
+<section class="hero">
+    <h2>Find your next great read.</h2>
+    <p>Explore our collection of books for students and curious minds.</p>
+</section>
+
+<main>
+    <h2>Explore Books</h2>
+
+    <div class="search-box">
+        <input id="topic" type="text"
+               placeholder="Search by topic, e.g. distributed systems">
+        <button onclick="searchBooks()">Search</button>
+        <button class="secondary" onclick="loadBooks()">Show All</button>
+    </div>
+
+    <div id="message" role="status"></div>
+    <section id="books" class="book-grid"></section>
+
+    <section class="panel">
+        <h2>Book Details</h2>
+        <div class="admin-row">
+            <input id="detailId" type="number" min="1"
+                   placeholder="Enter book ID">
+            <button onclick="showDetails()">View Details</button>
+        </div>
+        <div id="details"></div>
+    </section>
+
+    <section class="panel">
+        <h2>Inventory Management</h2>
+        <p>Update a book's price or stock quantity.</p>
+
+        <div class="admin-row">
+            <input id="adminId" type="number" min="1"
+                   placeholder="Book ID">
+            <input id="newPrice" type="number" min="0" step="0.01"
+                   placeholder="New price">
+            <button onclick="updatePrice()">Update Price</button>
+        </div>
+
+        <div class="admin-row">
+            <input id="stockId" type="number" min="1"
+                   placeholder="Book ID">
+            <input id="newStock" type="number" min="0" step="1"
+                   placeholder="New stock">
+            <button onclick="updateStock()">Update Stock</button>
+        </div>
+    </section>
+</main>
+
+<footer>
+    Bazar.com — Distributed Online Book Store
+</footer>
+
+<script>
+    // The browser sends requests to FrontendService.
+    const API = "http://localhost:4568";
+
+    const messageBox = document.getElementById("message");
+    const booksBox = document.getElementById("books");
+
+    async function request(url, options = {}) {
+        const response = await fetch(url, options);
+        const text = await response.text();
+
+        let data;
+        try {
+            data = JSON.parse(text);
+        } catch {
+            data = text;
+        }
+
+        if (!response.ok) {
+            throw new Error(
+                typeof data === "string" ? data :
+                    (data.message || data.error || `Request failed: ${response.status}`)
+            );
+        }
+
+        return data;
+    }
+
+    function showMessage(message, isError = false) {
+        messageBox.textContent = message;
+        messageBox.style.color = isError ? "#b42318" : "#236451";
+    }
+
+    function getBookId(book) {
+        return book.ID ?? book.id ?? book.itemNumber;
+    }
+
+    async function loadBooks() {
+        try {
+            showMessage("Loading books...");
+            const books = await request(`${API}/catalog/books`);
+            renderBooks(books);
+            showMessage(`${books.length} book(s) loaded.`);
+        } catch (error) {
+            showMessage(
+                "Could not load books. Make sure Docker services are running. " +
+                error.message,
+                true
+            );
+        }
+    }
+
+    async function searchBooks() {
+        const topic = document.getElementById("topic").value.trim();
+
+        if (!topic) {
+            await loadBooks();
+            return;
+        }
+
+        try {
+            showMessage("Searching...");
+            const books = await request(
+                `${API}/search?topic=${encodeURIComponent(topic)}`
+            );
+            renderBooks(books);
+            showMessage(`${books.length} matching book(s) found.`);
+        } catch (error) {
+            showMessage("Search failed: " + error.message, true);
+        }
+    }
+
+    function renderBooks(books) {
+        booksBox.replaceChildren();
+
+        if (!Array.isArray(books) || books.length === 0) {
+            booksBox.textContent = "No books found.";
+            return;
+        }
+
+        books.forEach(book => {
+            const id = getBookId(book);
+            const card = document.createElement("article");
+            card.className = "book";
+
+            const icon = document.createElement("div");
+            icon.className = "book-icon";
+            icon.textContent = "📚";
+
+            const title = document.createElement("h3");
+            title.textContent = book.title;
+
+            const topic = document.createElement("p");
+            topic.className = "topic";
+            topic.textContent = book.topic;
+
+            const price = document.createElement("p");
+            price.className = "price";
+            price.textContent = `$${Number(book.price).toFixed(2)}`;
+
+            const stock = document.createElement("p");
+            stock.className = "stock";
+            stock.textContent = `In stock: ${book.stock}`;
+
+            const detailsButton = document.createElement("button");
+            detailsButton.className = "secondary";
+            detailsButton.textContent = "View Details";
+            detailsButton.onclick = () => {
+                document.getElementById("detailId").value = id;
+                showDetails();
+            };
+
+            const buyButton = document.createElement("button");
+            buyButton.textContent = "Buy Book";
+            buyButton.disabled = Number(book.stock) <= 0;
+            buyButton.onclick = () => purchaseBook(id);
+
+            card.append(icon, title, topic, price, stock,
+                detailsButton, buyButton);
+            booksBox.appendChild(card);
+        });
+    }
+
+    async function showDetails() {
+        const id = document.getElementById("detailId").value;
+
+        if (!id) {
+            showMessage("Enter a book ID first.", true);
+            return;
+        }
+
+        try {
+            const book = await request(`${API}/info/${id}`);
+            document.getElementById("details").textContent =
+                `ID: ${getBookId(book)} | ${book.title} | ` +
+                `Topic: ${book.topic} | Price: $${Number(book.price).toFixed(2)} | ` +
+                `Stock: ${book.stock}`;
+        } catch (error) {
+            showMessage("Could not retrieve book: " + error.message, true);
+        }
+    }
+
+    async function purchaseBook(id) {
+        try {
+            const result = await request(`${API}/purchase/${id}`, {
+                method: "POST"
+            });
+
+            showMessage(
+                result.message || result.status === "SUCCESS"
+                    ? (result.message || "Purchase successful!")
+                    : JSON.stringify(result)
+            );
+
+            await loadBooks();
+        } catch (error) {
+            showMessage(
+                "Purchase unsuccessful. The book may be out of stock. " +
+                error.message,
+                true
+            );
+        }
+    }
+
+    async function updatePrice() {
+        const id = document.getElementById("adminId").value;
+        const price = Number(document.getElementById("newPrice").value);
+
+        if (!id || document.getElementById("newPrice").value === "" ||
+            !Number.isFinite(price) || price < 0) {
+            showMessage("Enter a valid book ID and non-negative price.", true);
+            return;
+        }
+
+        try {
+            await request(`${API}/catalog/books/${id}/price`, {
+                method: "PUT",
+                headers: {"Content-Type": "application/json"},
+                body: JSON.stringify({price})
+            });
+
+            showMessage("Book price updated successfully.");
+            await loadBooks();
+        } catch (error) {
+            showMessage("Price update failed: " + error.message, true);
+        }
+    }
+
+    async function updateStock() {
+        const id = document.getElementById("stockId").value;
+        const rawStock = document.getElementById("newStock").value;
+        const stock = Number(rawStock);
+
+        if (!id || rawStock === "" ||
+            !Number.isInteger(stock) || stock < 0) {
+            showMessage("Enter a valid book ID and non-negative whole stock.", true);
+            return;
+        }
+
+        try {
+            await request(`${API}/catalog/books/${id}/stock`, {
+                method: "PUT",
+                headers: {"Content-Type": "application/json"},
+                body: JSON.stringify({stock})
+            });
+
+            showMessage("Book stock updated successfully.");
+            await loadBooks();
+        } catch (error) {
+            showMessage("Stock update failed: " + error.message, true);
+        }
+    }
+
+    loadBooks();
+</script>
+
+</body>
+</html>
+```
