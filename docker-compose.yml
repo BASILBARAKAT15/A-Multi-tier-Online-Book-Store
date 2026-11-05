@@ -1,0 +1,38 @@
+services:
+  catalog:
+    build: .
+    image: bazar-app
+    environment:
+      SERVICE_CLASS: CatalogService
+    ports:
+      - "4567:4567"
+    volumes:
+      - ./data:/app/data
+    restart: unless-stopped
+
+  order:
+    build: .
+    image: bazar-app
+    environment:
+      SERVICE_CLASS: OrderService
+    ports:
+      - "4569:4569"
+    volumes:
+      - ./data:/app/data
+    depends_on:
+      - catalog
+    restart: unless-stopped
+
+  frontend:
+    build: .
+    image: bazar-app
+    environment:
+      SERVICE_CLASS: FrontendService
+      CATALOG_URL: http://catalog:4567
+      ORDER_URL: http://order:4569
+    ports:
+      - "4568:4568"
+    depends_on:
+      - catalog
+      - order
+    restart: unless-stopped
