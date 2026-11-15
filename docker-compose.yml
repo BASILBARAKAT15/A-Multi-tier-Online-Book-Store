@@ -15,6 +15,7 @@ services:
     image: bazar-app
     environment:
       SERVICE_CLASS: OrderService
+      CATALOG_URL: http://catalog:4567
     ports:
       - "4569:4569"
     volumes:
