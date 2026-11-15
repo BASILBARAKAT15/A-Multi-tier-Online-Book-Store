@@ -1,0 +1,80 @@
+frontend-1  | Frontend Service is running on port 4568
+frontend-1  | [frontend] GET /search/distributed%20systems -> 200 [{"id":1,"title":"How to get a good grade in DOS in 40 minutes a day"},{"id":2,"title":"RPCs for Noobs"}]
+catalog-1   | Books loaded from data/books.json
+catalog-1   | Catalog Service is running on port 4567
+catalog-1   | [search] topic "distributed systems" -> 2 result(s)
+catalog-1   |          #1 | How to get a good grade in DOS in 40 minutes a day | distributed systems   | $ 20.00 | stock: 10
+catalog-1   |          #2 | RPCs for Noobs                                     | distributed systems   | $ 25.00 | stock: 8
+order-1     | Loaded 0 saved orders
+catalog-1   | [search] topic "undergraduate school" -> 2 result(s)
+catalog-1   |          #3 | Xen and the Art of Surviving Undergraduate School  | undergraduate school  | $ 30.00 | stock: 5
+order-1     | Order Service is running on port 4569
+catalog-1   |          #4 | Cooking for the Impatient Undergrad                | undergraduate school  | $ 15.00 | stock: 7
+catalog-1   | [search] topic "no such topic" -> 0 result(s)
+catalog-1   | [info]   #2 | RPCs for Noobs                                     | distributed systems   | $ 25.00 | stock: 8
+catalog-1   | [info]   book 99 not found
+catalog-1   | [info]   #1 | How to get a good grade in DOS in 40 minutes a day | distributed systems   | $ 20.00 | stock: 10
+catalog-1   | [purchase] sold one copy of book 1, stock left: 9
+catalog-1   | [info]   #1 | How to get a good grade in DOS in 40 minutes a day | distributed systems   | $ 20.00 | stock: 9
+catalog-1   | [update] stock of book 4: 7 -> 1
+catalog-1   | [purchase] sold one copy of book 4, stock left: 0
+catalog-1   | [purchase] book 4 is out of stock
+order-1     | bought book How to get a good grade in DOS in 40 minutes a day
+order-1     | bought book Cooking for the Impatient Undergrad
+order-1     | bought book RPCs for Noobs
+order-1     | bought book RPCs for Noobs
+order-1     | bought book RPCs for Noobs
+order-1     | bought book RPCs for Noobs
+order-1     | bought book RPCs for Noobs
+frontend-1  | [frontend] GET /catalog/search?topic=undergraduate+school -> 200 [{"ID":3,"title":"Xen and the Art of Surviving Undergraduate School","topic":"undergraduate school","price":30.0,"stock":5},{"ID":4,"title":"Cooking for the Impatient Undergrad","topic":"undergraduate school","price":15.0,"stock":7}]
+frontend-1  | [frontend] GET /search/no%20such%20topic -> 200 []
+frontend-1  | [frontend] GET /info/2 -> 200 {"title":"RPCs for Noobs","quantity":8,"price":25.0,"id":2,"topic":"distributed systems","stock":8}
+frontend-1  | [frontend] GET /info/99 -> 404 {"error":"Book not found"}
+frontend-1  | [frontend] POST /purchase/1 -> 201 {"itemNumber":1,"title":"How to get a good grade in DOS in 40 minutes a day","price":20.0,"status":"SUCCESS"}
+frontend-1  | [frontend] POST /purchase/99 -> 404 {"error":"Book not found"}
+frontend-1  | [frontend] POST /purchase/4 -> 201 {"itemNumber":4,"title":"Cooking for the Impatient Undergrad","price":15.0,"status":"SUCCESS"}
+frontend-1  | [frontend] POST /purchase/4 -> 409 {"error":"Book is out of stock"}
+catalog-1   | [update] stock of book 4: 0 -> 5
+catalog-1   | [update] price of book 3: 30.0 -> 42.5
+catalog-1   | [update] stock of book 2: 8 -> 5
+catalog-1   | [purchase] sold one copy of book 2, stock left: 4
+catalog-1   | [purchase] sold one copy of book 2, stock left: 3
+catalog-1   | [purchase] sold one copy of book 2, stock left: 2
+catalog-1   | [purchase] sold one copy of book 2, stock left: 1
+catalog-1   | [purchase] sold one copy of book 2, stock left: 0
+catalog-1   | [purchase] book 2 is out of stock
+catalog-1   | [purchase] book 2 is out of stock
+catalog-1   | [purchase] book 2 is out of stock
+catalog-1   | [purchase] book 2 is out of stock
+catalog-1   | [purchase] book 2 is out of stock
+catalog-1   | [purchase] book 2 is out of stock
+catalog-1   | [purchase] book 2 is out of stock
+catalog-1   | [purchase] book 2 is out of stock
+catalog-1   | [purchase] book 2 is out of stock
+catalog-1   | [purchase] book 2 is out of stock
+catalog-1   | [purchase] book 2 is out of stock
+catalog-1   | [purchase] book 2 is out of stock
+catalog-1   | [purchase] book 2 is out of stock
+catalog-1   | [purchase] book 2 is out of stock
+catalog-1   | [purchase] book 2 is out of stock
+catalog-1   | [info]   #2 | RPCs for Noobs                                     | distributed systems   | $ 25.00 | stock: 0
+frontend-1  | [frontend] POST /purchase/2 -> 201 {"itemNumber":2,"title":"RPCs for Noobs","price":25.0,"status":"SUCCESS"}
+frontend-1  | [frontend] POST /purchase/2 -> 201 {"itemNumber":2,"title":"RPCs for Noobs","price":25.0,"status":"SUCCESS"}
+frontend-1  | [frontend] POST /purchase/2 -> 201 {"itemNumber":2,"title":"RPCs for Noobs","price":25.0,"status":"SUCCESS"}
+frontend-1  | [frontend] POST /purchase/2 -> 409 {"error":"Book is out of stock"}
+frontend-1  | [frontend] POST /purchase/2 -> 201 {"itemNumber":2,"title":"RPCs for Noobs","price":25.0,"status":"SUCCESS"}
+frontend-1  | [frontend] POST /purchase/2 -> 201 {"itemNumber":2,"title":"RPCs for Noobs","price":25.0,"status":"SUCCESS"}
+frontend-1  | [frontend] POST /purchase/2 -> 409 {"error":"Book is out of stock"}
+frontend-1  | [frontend] POST /purchase/2 -> 409 {"error":"Book is out of stock"}
+frontend-1  | [frontend] POST /purchase/2 -> 409 {"error":"Book is out of stock"}
+frontend-1  | [frontend] POST /purchase/2 -> 409 {"error":"Book is out of stock"}
+frontend-1  | [frontend] POST /purchase/2 -> 409 {"error":"Book is out of stock"}
+frontend-1  | [frontend] POST /purchase/2 -> 409 {"error":"Book is out of stock"}
+frontend-1  | [frontend] POST /purchase/2 -> 409 {"error":"Book is out of stock"}
+frontend-1  | [frontend] POST /purchase/2 -> 409 {"error":"Book is out of stock"}
+frontend-1  | [frontend] POST /purchase/2 -> 409 {"error":"Book is out of stock"}
+frontend-1  | [frontend] POST /purchase/2 -> 409 {"error":"Book is out of stock"}
+frontend-1  | [frontend] POST /purchase/2 -> 409 {"error":"Book is out of stock"}
+frontend-1  | [frontend] POST /purchase/2 -> 409 {"error":"Book is out of stock"}
+frontend-1  | [frontend] POST /purchase/2 -> 409 {"error":"Book is out of stock"}
+frontend-1  | [frontend] POST /purchase/2 -> 409 {"error":"Book is out of stock"}
