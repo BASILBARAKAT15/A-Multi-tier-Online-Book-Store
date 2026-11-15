@@ -26,6 +26,8 @@ public class FrontendService {
 
         port(4568);
 
+
+
         // Allow the browser to call the API routes.
         before((req, res) -> {
             res.header("Access-Control-Allow-Origin", "*");
@@ -77,6 +79,8 @@ public class FrontendService {
                 res.type("application/json");
                 return "{\"error\":\"Invalid book ID\"}";
             }
+
+
 
             return sendGet("/catalog/books/" + id, res);
         });

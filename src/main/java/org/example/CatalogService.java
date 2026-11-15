@@ -7,51 +7,48 @@ import com.google.gson.reflect.TypeToken;
 
 import java.io.IOException;
 import java.lang.reflect.Type;
-import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.Paths;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
 
 public class CatalogService {
 
     private static final Gson gson = new Gson();
+    private static final Path DATA_FILE = Path.of("data", "books.json");
 
-    private static final Path DATA_FILE =
-            Paths.get("data", "books.json");
-
-    private static final List<Book> books =
-            Collections.synchronizedList(new ArrayList<>());
+    private static final Object lock = new Object();
+    private static final List<Book> books = new ArrayList<>();
 
     public static void main(String[] args) {
 
         loadBooks();
-
         port(4567);
 
-        get("/", (req, res) ->
-                "Catalog Service is running on port 4567");
+        // Check that the service is running.
+        get("/", (req, res) -> "Catalog Service is running");
 
+        // Return all books.
         get("/catalog/books", (req, res) -> {
             res.type("application/json");
-            synchronized (books) {
+
+            synchronized (lock) {
                 return gson.toJson(books);
             }
         });
 
+        // Search books by topic.
         get("/catalog/search", (req, res) -> {
             String topic = req.queryParams("topic");
 
             if (topic == null || topic.isBlank()) {
-                res.status(400);
-                return "{\"error\":\"Please provide a topic\"}";
+                return error(res, 400, "Please provide a topic");
             }
 
             List<Book> result = new ArrayList<>();
 
-            synchronized (books) {
+            synchronized (lock) {
                 for (Book book : books) {
                     if (book.topic.equalsIgnoreCase(topic)) {
                         result.add(book);
@@ -63,187 +60,192 @@ public class CatalogService {
             return gson.toJson(result);
         });
 
+        // Get one book by ID.
         get("/catalog/books/:id", (req, res) -> {
-            int id;
+            Integer id = getId(req);
 
-            try {
-                id = Integer.parseInt(req.params(":id"));
-            } catch (NumberFormatException e) {
-                res.status(400);
-                return "{\"error\":\"Invalid book ID\"}";
+            if (id == null) {
+                return error(res, 400, "Invalid book ID");
             }
 
-            synchronized (books) {
-                for (Book book : books) {
-                    if (book.ID == id) {
-                        res.type("application/json");
-                        return gson.toJson(book);
-                    }
+            synchronized (lock) {
+                Book book = findBook(id);
+
+                if (book == null) {
+                    return error(res, 404, "Book not found");
                 }
-            }
 
-            res.status(404);
-            return "{\"error\":\"Book not found\"}";
+                res.type("application/json");
+                return gson.toJson(book);
+            }
         });
 
+        // Update book price.
         put("/catalog/books/:id/price", (req, res) -> {
-            int id;
+            Integer id = getId(req);
+
+            if (id == null) {
+                return error(res, 400, "Invalid book ID");
+            }
+
             PriceUpdate update;
 
             try {
-                id = Integer.parseInt(req.params(":id"));
                 update = gson.fromJson(req.body(), PriceUpdate.class);
             } catch (Exception e) {
-                res.status(400);
-                return "{\"error\":\"Invalid request\"}";
+                return error(res, 400, "Invalid price");
             }
 
             if (update == null || !Double.isFinite(update.price)
                     || update.price < 0) {
-                res.status(400);
-                return "{\"error\":\"Invalid price\"}";
+                return error(res, 400, "Invalid price");
             }
 
-            synchronized (books) {
-                for (Book book : books) {
-                    if (book.ID == id) {
-                        double oldPrice = book.price;
-                        book.price = update.price;
+            synchronized (lock) {
+                Book book = findBook(id);
 
-                        try {
-                            saveBooks();
-                        } catch (IOException e) {
-                            book.price = oldPrice;
-                            res.status(500);
-                            return "{\"error\":\"Could not save books\"}";
-                        }
-
-                        res.type("application/json");
-                        return gson.toJson(book);
-                    }
+                if (book == null) {
+                    return error(res, 404, "Book not found");
                 }
-            }
 
-            res.status(404);
-            return "{\"error\":\"Book not found\"}";
+                double oldPrice = book.price;
+                book.price = update.price;
+
+                try {
+                    saveBooks();
+                } catch (IOException e) {
+                    book.price = oldPrice;
+                    return error(res, 500, "Could not save books");
+                }
+
+                res.type("application/json");
+                return gson.toJson(book);
+            }
         });
 
+        // Update book stock.
         put("/catalog/books/:id/stock", (req, res) -> {
-            int id;
+            Integer id = getId(req);
+
+            if (id == null) {
+                return error(res, 400, "Invalid book ID");
+            }
+
             StockUpdate update;
 
             try {
-                id = Integer.parseInt(req.params(":id"));
                 update = gson.fromJson(req.body(), StockUpdate.class);
             } catch (Exception e) {
-                res.status(400);
-                return "{\"error\":\"Invalid request\"}";
+                return error(res, 400, "Invalid stock");
             }
 
             if (update == null || update.stock < 0) {
-                res.status(400);
-                return "{\"error\":\"Invalid stock\"}";
+                return error(res, 400, "Invalid stock");
             }
 
-            synchronized (books) {
-                for (Book book : books) {
-                    if (book.ID == id) {
-                        int oldStock = book.stock;
-                        book.stock = update.stock;
+            synchronized (lock) {
+                Book book = findBook(id);
 
-                        try {
-                            saveBooks();
-                        } catch (IOException e) {
-                            book.stock = oldStock;
-                            res.status(500);
-                            return "{\"error\":\"Could not save books\"}";
-                        }
-
-                        res.type("application/json");
-                        return gson.toJson(book);
-                    }
+                if (book == null) {
+                    return error(res, 404, "Book not found");
                 }
-            }
 
-            res.status(404);
-            return "{\"error\":\"Book not found\"}";
-        });
-// Purchase one copy safely.
-// Checking and decreasing stock happen under the same lock.
-        post("/catalog/books/:id/purchase", (req, res) -> {
-            int id;
+                int oldStock = book.stock;
+                book.stock = update.stock;
 
-            try {
-                id = Integer.parseInt(req.params(":id"));
-            } catch (NumberFormatException e) {
+                try {
+                    saveBooks();
+                } catch (IOException e) {
+                    book.stock = oldStock;
+                    return error(res, 500, "Could not save books");
+                }
+
                 res.type("application/json");
-                res.status(400);
-                return "{\"error\":\"Invalid book ID\"}";
+                return gson.toJson(book);
             }
-
-            res.type("application/json");
-
-            synchronized (books) {
-                for (Book book : books) {
-                    if (book.ID == id) {
-
-                        // Reject the purchase if no copies remain.
-                        if (book.stock <= 0) {
-                            res.status(409);
-                            return "{\"error\":\"Book is out of stock\"}";
-                        }
-
-                        // Save the old value so we can undo the change if saving fails.
-                        int oldStock = book.stock;
-                        book.stock--;
-
-                        try {
-                            saveBooks();
-                        } catch (IOException e) {
-                            book.stock = oldStock;
-                            res.status(500);
-                            return "{\"error\":\"Could not save books\"}";
-                        }
-
-                        res.status(200);
-                        return gson.toJson(book);
-                    }
-                }
-            }
-
-            res.type("application/json");
-            res.status(404);
-            return "{\"error\":\"Book not found\"}";
         });
 
-        System.out.println(
-                "Catalog Service is running on port 4567");
+        // Purchase one book.
+        post("/catalog/books/:id/purchase", (req, res) -> {
+            Integer id = getId(req);
+
+            if (id == null) {
+                return error(res, 400, "Invalid book ID");
+            }
+
+            synchronized (lock) {
+                Book book = findBook(id);
+
+                if (book == null) {
+                    return error(res, 404, "Book not found");
+                }
+
+                if (book.stock <= 0) {
+                    return error(res, 409, "Book is out of stock");
+                }
+
+                book.stock--;
+
+                try {
+                    saveBooks();
+                } catch (IOException e) {
+                    book.stock++;
+                    return error(res, 500, "Could not save books");
+                }
+
+                res.type("application/json");
+                return gson.toJson(book);
+            }
+        });
+
+        System.out.println("Catalog Service is running on port 4567");
     }
 
+    // Find a book using its ID.
+    private static Book findBook(int id) {
+        for (Book book : books) {
+            if (book.ID == id) {
+                return book;
+            }
+        }
+        return null;
+    }
+
+    // Read the book ID from the request.
+    private static Integer getId(spark.Request req) {
+        try {
+            return Integer.parseInt(req.params(":id"));
+        } catch (NumberFormatException e) {
+            return null;
+        }
+    }
+
+    // Return an error response.
+    private static String error(spark.Response res, int status, String message) {
+        res.status(status);
+        res.type("application/json");
+        return "{\"error\":\"" + message + "\"}";
+    }
+
+    // Load books from the JSON file.
     private static void loadBooks() {
         try {
             Files.createDirectories(DATA_FILE.getParent());
 
-            if (Files.exists(DATA_FILE)
-                    && Files.size(DATA_FILE) > 0) {
+            if (Files.exists(DATA_FILE) && Files.size(DATA_FILE) > 0) {
+                Type type = new TypeToken<List<Book>>() {}.getType();
 
-                Type listType =
-                        new TypeToken<List<Book>>() {}.getType();
-
-                List<Book> savedBooks =
-                        gson.fromJson(
-                                Files.readString(DATA_FILE),
-                                listType);
+                List<Book> savedBooks = gson.fromJson(
+                        Files.readString(DATA_FILE), type);
 
                 if (savedBooks != null && !savedBooks.isEmpty()) {
                     books.addAll(savedBooks);
-                    System.out.println(
-                            "Books loaded from " + DATA_FILE);
+                    System.out.println("Books loaded successfully");
                     return;
                 }
             }
 
-            // Create the initial catalog only if no saved data exists.
+            // Add default books if the file is empty.
             books.add(new Book(1,
                     "How to get a good grade in DOS in 40 minutes a day",
                     "distributed systems", 20, 10));
@@ -263,19 +265,17 @@ public class CatalogService {
             saveBooks();
 
         } catch (Exception e) {
-            throw new RuntimeException(
-                    "Could not load catalog data", e);
+            throw new RuntimeException("Could not load books", e);
         }
     }
 
+    // Save books to the JSON file.
     private static void saveBooks() throws IOException {
-        Files.createDirectories(DATA_FILE.getParent());
-
-        synchronized (books) {
-            String json = gson.toJson(books);
-            Files.writeString(
-                    DATA_FILE, json, StandardCharsets.UTF_8);
-        }
+        Files.writeString(
+                DATA_FILE,
+                gson.toJson(books),
+                StandardCharsets.UTF_8
+        );
     }
 
     private static class PriceUpdate {
