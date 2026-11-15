@@ -1,0 +1,54 @@
+== Services are up
+  GET http://localhost:4567/ -> 200 Catalog Service is running on port 4567 
+PASS: catalog service responds
+  GET http://localhost:4569/ -> 200 Order Service is running on port 4569 
+PASS: order service responds
+  GET http://localhost:4568/ -> 200 <!DOCTYPE html> <html lang="en"> <head>     <meta charset="UTF-8">     <meta name="viewport" content="width=device-width, initial-scale=1.0">     <title>Bazar.com | Book Store</title>      <sty
+PASS: frontend serves the web page
+== search(topic)
+  GET http://localhost:4568/search/distributed%20systems -> 200 [{"id":1,"title":"How to get a good grade in DOS in 40 minutes a day"},{"id":2,"title":"RPCs for Noobs"}] 
+PASS: search by topic (path style) finds the 2 DOS books
+  GET http://localhost:4568/search?topic=undergraduate%20school -> 200 [{"ID":3,"title":"Xen and the Art of Surviving Undergraduate School","topic":"undergraduate school","price":30.0,"stock":5},{"ID":4,"title":"Cooking for the Impatient Undergrad","topic":"undergraduate
+PASS: search by topic (query style) finds the 2 school books
+  GET http://localhost:4568/search/no%20such%20topic -> 200 [] 
+PASS: unknown topic returns an empty list
+== info(item_number)
+  GET http://localhost:4568/info/2 -> 200 {"title":"RPCs for Noobs","quantity":8,"price":25.0,"id":2,"topic":"distributed systems","stock":8} 
+PASS: info returns title, quantity and price
+  GET http://localhost:4568/info/99 -> 404 {"error":"Book not found"} 
+PASS: info on unknown item returns 404
+  GET http://localhost:4568/info/abc -> 400 {"error":"Invalid book ID"} 
+PASS: info with a bad id returns 400
+== purchase(item_number)
+  GET http://localhost:4567/info/1 -> 200 {"title":"How to get a good grade in DOS in 40 minutes a day","quantity":10,"price":20.0,"id":1,"topic":"distributed systems","stock":10} 
+  POST http://localhost:4568/purchase/1 -> 201 {"itemNumber":1,"title":"How to get a good grade in DOS in 40 minutes a day","price":20.0,"status":"SUCCESS"} 
+PASS: purchase succeeds
+  GET http://localhost:4567/info/1 -> 200 {"title":"How to get a good grade in DOS in 40 minutes a day","quantity":9,"price":20.0,"id":1,"topic":"distributed systems","stock":9} 
+PASS: stock dropped by one (10 -> 9)
+  GET http://localhost:4569/orders -> 200 [{"itemNumber":1,"title":"How to get a good grade in DOS in 40 minutes a day","price":20.0,"status":"SUCCESS"}] 
+PASS: order is recorded in the order log
+  POST http://localhost:4568/purchase/99 -> 404 {"error":"Book not found"} 
+PASS: purchase of unknown book returns 404
+== catalog update (restock, then sell out)
+  PUT http://localhost:4567/catalog/books/4/stock -> 200 {"ID":4,"title":"Cooking for the Impatient Undergrad","topic":"undergraduate school","price":15.0,"stock":1} 
+PASS: set stock of book 4 to 1
+  POST http://localhost:4568/purchase/4 -> 201 {"itemNumber":4,"title":"Cooking for the Impatient Undergrad","price":15.0,"status":"SUCCESS"} 
+PASS: buying the last copy works
+  POST http://localhost:4568/purchase/4 -> 409 {"error":"Book is out of stock"} 
+PASS: buying when out of stock fails with 409
+  PUT http://localhost:4568/catalog/books/4/stock -> 200 {"ID":4,"title":"Cooking for the Impatient Undergrad","topic":"undergraduate school","price":15.0,"stock":5} 
+PASS: increase stock by 5 with delta
+  PUT http://localhost:4568/catalog/books/4/stock -> 400 {"error":"Stock cannot be negative"} 
+PASS: decreasing below zero is rejected
+  PUT http://localhost:4568/catalog/books/4/stock -> 400 {"error":"Invalid stock"} 
+PASS: update without stock or delta is rejected
+  PUT http://localhost:4568/catalog/books/3/price -> 200 {"ID":3,"title":"Xen and the Art of Surviving Undergraduate School","topic":"undergraduate school","price":42.5,"stock":5} 
+PASS: update price
+  PUT http://localhost:4568/catalog/books/3/price -> 400 {"error":"Invalid price"} 
+PASS: negative price is rejected
+== concurrency: 20 parallel purchases of a book with 5 copies
+  PUT http://localhost:4567/catalog/books/2/stock -> 200 {"ID":2,"title":"RPCs for Noobs","topic":"distributed systems","price":25.0,"stock":5} 
+  GET http://localhost:4567/info/2 -> 200 {"title":"RPCs for Noobs","quantity":0,"price":25.0,"id":2,"topic":"distributed systems","stock":0} 
+PASS: exactly 5 of 20 parallel purchases succeeded, stock is 0
+
+Result: 22 passed, 0 failed

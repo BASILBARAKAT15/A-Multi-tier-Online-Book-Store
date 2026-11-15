@@ -12,21 +12,32 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 
+/**
+ * Front-end microservice (default port 4568).
+ *
+ * The only service clients talk to. It validates requests and forwards
+ * them over HTTP: search/info go to the catalog service, purchase goes
+ * to the order service. It also serves the bookstore web page.
+ */
 public class FrontendService {
 
+    // HTTP client used for all calls to the back-end services.
     private static final HttpClient client = HttpClient.newHttpClient();
 
+    // Back-end addresses come from the environment so the tiers can run
+    // on different machines (docker compose sets them to the service names).
     private static final String CATALOG_URL =
             System.getenv().getOrDefault("CATALOG_URL", "http://localhost:4567");
 
     private static final String ORDER_URL =
             System.getenv().getOrDefault("ORDER_URL", "http://localhost:4569");
 
+    private static final int PORT = Integer.parseInt(
+            System.getenv().getOrDefault("PORT", "4568"));
+
     public static void main(String[] args) {
 
-        port(4568);
-
-
+        port(PORT);
 
         // Allow the browser to call the API routes.
         before((req, res) -> {
@@ -70,6 +81,14 @@ public class FrontendService {
             return sendGet("/catalog/search?topic=" + encodedTopic, res);
         });
 
+        // Appendix-style search: GET /search/<topic>.
+        get("/search/:topic", (req, res) -> {
+            String encoded = URLEncoder.encode(
+                    req.params(":topic"), StandardCharsets.UTF_8)
+                    .replace("+", "%20");
+            return sendGet("/search/" + encoded, res);
+        });
+
         // Get information about one book.
         get("/info/:id", (req, res) -> {
             String id = req.params(":id");
@@ -80,9 +99,7 @@ public class FrontendService {
                 return "{\"error\":\"Invalid book ID\"}";
             }
 
-
-
-            return sendGet("/catalog/books/" + id, res);
+            return sendGet("/info/" + id, res);
         });
 
         // Update book price.
@@ -113,15 +130,19 @@ public class FrontendService {
             HttpResponse<String> result = client.send(
                     request, HttpResponse.BodyHandlers.ofString());
 
+            System.out.println("[frontend] POST /purchase/" + id + " -> "
+                    + result.statusCode() + " " + result.body());
+
             res.type("application/json");
             res.status(result.statusCode());
 
             return result.body();
         });
 
-        System.out.println("Frontend Service is running on port 4568");
+        System.out.println("Frontend Service is running on port " + PORT);
     }
 
+    /** Forwards a GET to the catalog, logs the result, relays status + body. */
     private static String sendGet(
             String path, spark.Response response) throws Exception {
 
@@ -133,12 +154,17 @@ public class FrontendService {
         HttpResponse<String> result = client.send(
                 request, HttpResponse.BodyHandlers.ofString());
 
+        // Log what the user asked for and what came back.
+        System.out.println("[frontend] GET " + path + " -> "
+                + result.statusCode() + " " + result.body());
+
         response.type("application/json");
         response.status(result.statusCode());
 
         return result.body();
     }
 
+    /** Forwards a PUT (price/stock update) to the catalog and relays the reply. */
     private static String sendPut(
             String path, String body, spark.Response response)
             throws Exception {
