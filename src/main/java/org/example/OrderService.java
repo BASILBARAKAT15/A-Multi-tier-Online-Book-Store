@@ -27,11 +27,16 @@ public class OrderService {
     private static final HttpClient client =
             HttpClient.newHttpClient();
 
+    // Where the catalog service lives. Defaults to the docker compose name,
+    // but can point to any machine, e.g. CATALOG_URL=http://10.0.0.5:4567
     private static final String CATALOG_URL =
-            "http://catalog:4567";
+            System.getenv().getOrDefault("CATALOG_URL", "http://catalog:4567");
 
-    private static final Path ORDERS_FILE =
-            Path.of("data", "orders.json");
+    private static final int PORT = Integer.parseInt(
+            System.getenv().getOrDefault("PORT", "4569"));
+
+    private static final Path ORDERS_FILE = Path.of(
+            System.getenv().getOrDefault("DATA_DIR", "data"), "orders.json");
 
     private static final List<JsonObject> orders =
             Collections.synchronizedList(new ArrayList<>());
@@ -92,10 +97,10 @@ public class OrderService {
         // Restore the order history before accepting requests.
         loadOrders();
 
-        port(4569);
+        port(PORT);
 
         get("/", (req, res) ->
-                "Order Service is running on port 4569");
+                "Order Service is running on port " + PORT);
 
         // Purchase one copy of a book.
         post("/purchase/:id", (req, res) -> {
@@ -181,6 +186,6 @@ public class OrderService {
         });
 
         System.out.println(
-                "Order Service is running on port 4569");
+                "Order Service is running on port " + PORT);
     }
 }

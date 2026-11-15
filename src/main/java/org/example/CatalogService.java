@@ -19,8 +19,13 @@ public class CatalogService {
 
     private static final Gson gson = new Gson();
 
-    private static final Path DATA_FILE =
-            Paths.get("data", "books.json");
+    // Port and data directory can be overridden with environment variables
+    // so the service can run on any machine or container.
+    private static final int PORT = Integer.parseInt(
+            System.getenv().getOrDefault("PORT", "4567"));
+
+    private static final Path DATA_FILE = Paths.get(
+            System.getenv().getOrDefault("DATA_DIR", "data"), "books.json");
 
     private static final List<Book> books =
             Collections.synchronizedList(new ArrayList<>());
@@ -29,10 +34,10 @@ public class CatalogService {
 
         loadBooks();
 
-        port(4567);
+        port(PORT);
 
         get("/", (req, res) ->
-                "Catalog Service is running on port 4567");
+                "Catalog Service is running on port " + PORT);
 
         get("/catalog/books", (req, res) -> {
             res.type("application/json");
@@ -217,7 +222,7 @@ public class CatalogService {
         });
 
         System.out.println(
-                "Catalog Service is running on port 4567");
+                "Catalog Service is running on port " + PORT);
     }
 
     private static void loadBooks() {

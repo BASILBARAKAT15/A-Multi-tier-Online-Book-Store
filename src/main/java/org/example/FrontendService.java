@@ -22,9 +22,12 @@ public class FrontendService {
     private static final String ORDER_URL =
             System.getenv().getOrDefault("ORDER_URL", "http://localhost:4569");
 
+    private static final int PORT = Integer.parseInt(
+            System.getenv().getOrDefault("PORT", "4568"));
+
     public static void main(String[] args) {
 
-        port(4568);
+        port(PORT);
 
         // Allow the browser to call the API routes.
         before((req, res) -> {
@@ -115,7 +118,7 @@ public class FrontendService {
             return result.body();
         });
 
-        System.out.println("Frontend Service is running on port 4568");
+        System.out.println("Frontend Service is running on port " + PORT);
     }
 
     private static String sendGet(
