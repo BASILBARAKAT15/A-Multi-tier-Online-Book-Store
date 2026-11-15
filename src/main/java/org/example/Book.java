@@ -1,5 +1,10 @@
 package org.example;
 
+/**
+ * One book in the Bazar.com catalog.
+ * Serialized to JSON by Gson, so the field names (ID, title, topic,
+ * price, stock) are exactly what appears in data/books.json.
+ */
 public class Book {
     public int ID;
     public String title;

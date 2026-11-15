@@ -12,10 +12,20 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 
+/**
+ * Front-end microservice (default port 4568).
+ *
+ * The only service clients talk to. It validates requests and forwards
+ * them over HTTP: search/info go to the catalog service, purchase goes
+ * to the order service. It also serves the bookstore web page.
+ */
 public class FrontendService {
 
+    // HTTP client used for all calls to the back-end services.
     private static final HttpClient client = HttpClient.newHttpClient();
 
+    // Back-end addresses come from the environment so the tiers can run
+    // on different machines (docker compose sets them to the service names).
     private static final String CATALOG_URL =
             System.getenv().getOrDefault("CATALOG_URL", "http://localhost:4567");
 
@@ -132,6 +142,7 @@ public class FrontendService {
         System.out.println("Frontend Service is running on port " + PORT);
     }
 
+    /** Forwards a GET to the catalog, logs the result, relays status + body. */
     private static String sendGet(
             String path, spark.Response response) throws Exception {
 
@@ -153,6 +164,7 @@ public class FrontendService {
         return result.body();
     }
 
+    /** Forwards a PUT (price/stock update) to the catalog and relays the reply. */
     private static String sendPut(
             String path, String body, spark.Response response)
             throws Exception {

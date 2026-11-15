@@ -20,10 +20,19 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
+/**
+ * Order microservice (back-end tier, default port 4569).
+ *
+ * Receives purchase requests, asks the catalog service to sell one copy
+ * (the catalog checks the stock and decrements it atomically), and on
+ * success appends the order to data/orders.json and prints
+ * "bought book <title>".
+ */
 public class OrderService {
 
     private static final Gson gson = new Gson();
 
+    // HTTP client used to call the catalog service.
     private static final HttpClient client =
             HttpClient.newHttpClient();
 
@@ -38,6 +47,7 @@ public class OrderService {
     private static final Path ORDERS_FILE = Path.of(
             System.getenv().getOrDefault("DATA_DIR", "data"), "orders.json");
 
+    // All orders received so far; guarded by synchronized (orders).
     private static final List<JsonObject> orders =
             Collections.synchronizedList(new ArrayList<>());
 
@@ -70,6 +80,8 @@ public class OrderService {
     }
 
     // Save all orders to disk.
+    // Write to a temp file, then move it over orders.json, so a crash
+    // while writing cannot leave a half-written order log.
     private static void saveOrders() throws IOException {
         Files.createDirectories(ORDERS_FILE.getParent());
 
@@ -103,6 +115,9 @@ public class OrderService {
                 "Order Service is running on port " + PORT);
 
         // Purchase one copy of a book.
+        // purchase(item_number): ask the catalog to sell one copy, then
+        // record the order. Catalog errors (404 unknown book, 409 out of
+        // stock) are passed back to the caller unchanged.
         post("/purchase/:id", (req, res) -> {
 
             String id = req.params(":id");
@@ -177,6 +192,7 @@ public class OrderService {
         });
 
         // Return all orders, including those loaded from disk.
+        // Lists every recorded order (used by the tests).
         get("/orders", (req, res) -> {
             res.type("application/json");
 

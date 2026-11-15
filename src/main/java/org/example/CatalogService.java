@@ -15,8 +15,18 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
+/**
+ * Catalog microservice (back-end tier, default port 4567).
+ *
+ * Owns the book catalog: title, topic, price and stock of each book.
+ * Supports queries (by topic or by item number) and updates (price,
+ * stock), plus an atomic "purchase one copy" operation used by the
+ * order service. State is kept in memory and saved to data/books.json
+ * after every change, so it survives restarts.
+ */
 public class CatalogService {
 
+    // Converts objects to/from JSON for the REST replies and the data file.
     private static final Gson gson = new Gson();
 
     // Port and data directory can be overridden with environment variables
@@ -27,6 +37,8 @@ public class CatalogService {
     private static final Path DATA_FILE = Paths.get(
             System.getenv().getOrDefault("DATA_DIR", "data"), "books.json");
 
+    // The catalog. Every access is done inside synchronized (books) because
+    // Spark handles each request on its own thread.
     private static final List<Book> books =
             Collections.synchronizedList(new ArrayList<>());
 
@@ -39,6 +51,7 @@ public class CatalogService {
         get("/", (req, res) ->
                 "Catalog Service is running on port " + PORT);
 
+        // query: list every book.
         get("/catalog/books", (req, res) -> {
             res.type("application/json");
             synchronized (books) {
@@ -46,6 +59,8 @@ public class CatalogService {
             }
         });
 
+        // query-by-subject (query-string style): GET /catalog/search?topic=...
+        // Returns the full record of every book on that topic.
         get("/catalog/search", (req, res) -> {
             String topic = req.queryParams("topic");
 
@@ -130,6 +145,7 @@ public class CatalogService {
             return "{\"error\":\"Book not found\"}";
         });
 
+        // query-by-item: GET /catalog/books/<id> returns the full record.
         get("/catalog/books/:id", (req, res) -> {
             int id;
 
@@ -154,6 +170,8 @@ public class CatalogService {
             return "{\"error\":\"Book not found\"}";
         });
 
+        // update: change the price. Body: {"price": 12.5}.
+        // The old value is restored if the file cannot be saved.
         put("/catalog/books/:id/price", (req, res) -> {
             int id;
             PriceUpdate update;
@@ -199,6 +217,8 @@ public class CatalogService {
             return "{\"error\":\"Book not found\"}";
         });
 
+        // update: change the stock. Body: {"stock": 10} sets it,
+        // {"delta": 5} / {"delta": -2} increases / decreases it.
         put("/catalog/books/:id/stock", (req, res) -> {
             int id;
             StockUpdate update;
@@ -309,6 +329,10 @@ public class CatalogService {
                 "Catalog Service is running on port " + PORT);
     }
 
+    /**
+     * Loads data/books.json at start-up. If the file is missing or empty,
+     * creates the four initial books and saves them.
+     */
     private static void loadBooks() {
         try {
             Files.createDirectories(DATA_FILE.getParent());
@@ -357,6 +381,7 @@ public class CatalogService {
         }
     }
 
+    /** Writes the whole catalog to data/books.json (call under the lock). */
     private static void saveBooks() throws IOException {
         Files.createDirectories(DATA_FILE.getParent());
 
@@ -367,10 +392,12 @@ public class CatalogService {
         }
     }
 
+    /** JSON body of the price update request. */
     private static class PriceUpdate {
         double price;
     }
 
+    /** JSON body of the stock update request: exactly one field is set. */
     private static class StockUpdate {
         Integer stock;
         Integer delta;
