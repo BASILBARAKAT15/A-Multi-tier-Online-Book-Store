@@ -64,8 +64,70 @@ public class CatalogService {
                 }
             }
 
+            logSearch(topic, result);
+
             res.type("application/json");
             return gson.toJson(result);
+        });
+
+        // Appendix-style search: GET /search/<topic> returns [{id, title}].
+        get("/search/:topic", (req, res) -> {
+            String topic = req.params(":topic");
+            List<java.util.Map<String, Object>> result = new ArrayList<>();
+            List<Book> matches = new ArrayList<>();
+
+            synchronized (books) {
+                for (Book book : books) {
+                    if (book.topic.equalsIgnoreCase(topic)) {
+                        matches.add(book);
+                        java.util.Map<String, Object> entry =
+                                new java.util.LinkedHashMap<>();
+                        entry.put("id", book.ID);
+                        entry.put("title", book.title);
+                        result.add(entry);
+                    }
+                }
+            }
+
+            logSearch(topic, matches);
+            res.type("application/json");
+            return gson.toJson(result);
+        });
+
+        // Appendix-style info: GET /info/<id> returns {title, quantity, price}.
+        // The full record (id, topic, stock) is included as well so the
+        // bundled web page can use the same endpoint.
+        get("/info/:id", (req, res) -> {
+            res.type("application/json");
+            int id;
+
+            try {
+                id = Integer.parseInt(req.params(":id"));
+            } catch (NumberFormatException e) {
+                res.status(400);
+                return "{\"error\":\"Invalid book ID\"}";
+            }
+
+            synchronized (books) {
+                for (Book book : books) {
+                    if (book.ID == id) {
+                        System.out.println("[info]   " + book.describe());
+                        java.util.Map<String, Object> info =
+                                new java.util.LinkedHashMap<>();
+                        info.put("title", book.title);
+                        info.put("quantity", book.stock);
+                        info.put("price", book.price);
+                        info.put("id", book.ID);
+                        info.put("topic", book.topic);
+                        info.put("stock", book.stock);
+                        return gson.toJson(info);
+                    }
+                }
+            }
+
+            System.out.println("[info]   book " + id + " not found");
+            res.status(404);
+            return "{\"error\":\"Book not found\"}";
         });
 
         get("/catalog/books/:id", (req, res) -> {
@@ -81,6 +143,7 @@ public class CatalogService {
             synchronized (books) {
                 for (Book book : books) {
                     if (book.ID == id) {
+                        System.out.println("[info]   " + book.describe());
                         res.type("application/json");
                         return gson.toJson(book);
                     }
@@ -123,6 +186,9 @@ public class CatalogService {
                             return "{\"error\":\"Could not save books\"}";
                         }
 
+                        System.out.println("[update] price of book " + id
+                                + ": " + oldPrice + " -> " + update.price);
+
                         res.type("application/json");
                         return gson.toJson(book);
                     }
@@ -145,7 +211,11 @@ public class CatalogService {
                 return "{\"error\":\"Invalid request\"}";
             }
 
-            if (update == null || update.stock < 0) {
+            // Send either {"stock": n} to set the quantity, or
+            // {"delta": n} to increase (n > 0) or decrease (n < 0) it.
+            if (update == null
+                    || (update.stock == null) == (update.delta == null)
+                    || (update.stock != null && update.stock < 0)) {
                 res.status(400);
                 return "{\"error\":\"Invalid stock\"}";
             }
@@ -154,7 +224,15 @@ public class CatalogService {
                 for (Book book : books) {
                     if (book.ID == id) {
                         int oldStock = book.stock;
-                        book.stock = update.stock;
+                        int newStock = update.stock != null
+                                ? update.stock : oldStock + update.delta;
+
+                        if (newStock < 0) {
+                            res.status(400);
+                            return "{\"error\":\"Stock cannot be negative\"}";
+                        }
+
+                        book.stock = newStock;
 
                         try {
                             saveBooks();
@@ -164,6 +242,8 @@ public class CatalogService {
                             return "{\"error\":\"Could not save books\"}";
                         }
 
+                        System.out.println("[update] stock of book " + id
+                                + ": " + oldStock + " -> " + newStock);
                         res.type("application/json");
                         return gson.toJson(book);
                     }
@@ -194,6 +274,8 @@ public class CatalogService {
 
                         // Reject the purchase if no copies remain.
                         if (book.stock <= 0) {
+                            System.out.println("[purchase] book " + id
+                                    + " is out of stock");
                             res.status(409);
                             return "{\"error\":\"Book is out of stock\"}";
                         }
@@ -210,6 +292,8 @@ public class CatalogService {
                             return "{\"error\":\"Could not save books\"}";
                         }
 
+                        System.out.println("[purchase] sold one copy of book "
+                                + id + ", stock left: " + book.stock);
                         res.status(200);
                         return gson.toJson(book);
                     }
@@ -288,6 +372,16 @@ public class CatalogService {
     }
 
     private static class StockUpdate {
-        int stock;
+        Integer stock;
+        Integer delta;
+    }
+
+    /** Print search results as a small table in the server log. */
+    private static void logSearch(String topic, List<Book> matches) {
+        System.out.println("[search] topic \"" + topic + "\" -> "
+                + matches.size() + " result(s)");
+        for (Book book : matches) {
+            System.out.println("         " + book.describe());
+        }
     }
 }

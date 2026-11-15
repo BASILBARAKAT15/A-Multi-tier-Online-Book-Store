@@ -15,4 +15,10 @@ public class Book {
         this.price = price;
         this.stock = stock;
     }
+
+    /** One-line, human readable form used in server logs. */
+    public String describe() {
+        return String.format("#%d | %-50s | %-21s | $%6.2f | stock: %d",
+                ID, title, topic, price, stock);
+    }
 }

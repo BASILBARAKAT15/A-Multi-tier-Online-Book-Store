@@ -71,6 +71,14 @@ public class FrontendService {
             return sendGet("/catalog/search?topic=" + encodedTopic, res);
         });
 
+        // Appendix-style search: GET /search/<topic>.
+        get("/search/:topic", (req, res) -> {
+            String encoded = URLEncoder.encode(
+                    req.params(":topic"), StandardCharsets.UTF_8)
+                    .replace("+", "%20");
+            return sendGet("/search/" + encoded, res);
+        });
+
         // Get information about one book.
         get("/info/:id", (req, res) -> {
             String id = req.params(":id");
@@ -81,7 +89,7 @@ public class FrontendService {
                 return "{\"error\":\"Invalid book ID\"}";
             }
 
-            return sendGet("/catalog/books/" + id, res);
+            return sendGet("/info/" + id, res);
         });
 
         // Update book price.
@@ -112,6 +120,9 @@ public class FrontendService {
             HttpResponse<String> result = client.send(
                     request, HttpResponse.BodyHandlers.ofString());
 
+            System.out.println("[frontend] POST /purchase/" + id + " -> "
+                    + result.statusCode() + " " + result.body());
+
             res.type("application/json");
             res.status(result.statusCode());
 
@@ -131,6 +142,10 @@ public class FrontendService {
 
         HttpResponse<String> result = client.send(
                 request, HttpResponse.BodyHandlers.ofString());
+
+        // Log what the user asked for and what came back.
+        System.out.println("[frontend] GET " + path + " -> "
+                + result.statusCode() + " " + result.body());
 
         response.type("application/json");
         response.status(result.statusCode());
